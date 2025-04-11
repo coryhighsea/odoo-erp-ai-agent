@@ -1,30 +1,55 @@
-# setup and install, It runs in WSL with docker-compose
+# Odoo Docker Setup Guide
 
+## Prerequisites
+This setup runs in WSL with docker-compose.
+
+## Installation Steps
+
+1. Update and install required packages:
+```bash
 sudo apt update
 sudo apt install docker.io docker-compose
 sudo systemctl enable --now docker
+```
 
-# initially docker in wsl didn't work but after these commands it worked
+2. Configure Docker permissions (if needed):
+```bash
 getent group docker
 sudo usermod -aG docker $USER
 newgrp docker
+```
 
-# start server
+## Server Management
+
+### Starting the Server
+```bash
 docker-compose up -d
+```
 
-# to shutdown the server
+### Stopping the Server
+```bash
 docker-compose down
+```
 
-#also did
+### Building Specific Services
+```bash
 docker-compose build ai_agent
+```
 
-# start and stopping, less hard start and stop than down and up -d
+### Soft Start/Stop
+```bash
+# Stop services
 docker-compose stop
+
+# Start services
 docker-compose start
+```
 
-# shutdown and delete the database for a bigger restart
+### Complete Reset
+To shutdown and delete the database for a full restart:
+```bash
 docker-compose down -v
+```
 
-
-
-#need to provide own anthropic api key or use what llm api service you have and implement in the app.py
+## API Configuration
+Note: You need to provide your own Anthropic API key or implement your preferred LLM API service in the app.py file.
