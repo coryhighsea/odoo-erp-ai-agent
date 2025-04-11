@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="ai_agent_odoo.AIAgentWidget" owl="1">
+        <div class="ai-agent-widget">
+            <button class="ai-agent-toggle" t-on-click="() => this.toggleChat()">
+                <i class="fa fa-comments"/> AI Assistant
+            </button>
+            <t t-if="state.isOpen">
+                <div class="ai-agent-chat">
+                    <div class="ai-agent-header">
+                        <span>AI Assistant</span>
+                        <button class="close-button" t-on-click="() => this.toggleChat()">
+                            <i class="fa fa-times"/>
+                        </button>
+                    </div>
+                    <div class="ai-agent-messages">
+                        <t t-foreach="state.messages" t-as="message" t-key="message_index">
+                            <div t-att-class="'message ' + (message.isUser ? 'user-message' : 'assistant-message')">
+                                <t t-esc="message.content"/>
+                            </div>
+                        </t>
+                    </div>
+                    <div class="ai-agent-input">
+                        <input type="text" 
+                               t-model="state.inputMessage"
+                               placeholder="Type your message..."
+                               t-on-keydown="(ev) => ev.key === 'Enter' &amp;&amp; this.sendMessage()"/>
+                        <button t-on-click="() => this.sendMessage()">
+                            <i class="fa fa-paper-plane"/>
+                        </button>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates> 

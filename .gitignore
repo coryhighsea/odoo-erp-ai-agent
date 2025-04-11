@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+.env.*
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Odoo
+odoo-web-data/
+postgres-data/
+addons/*/static/description/
+filestore/
+sessions/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

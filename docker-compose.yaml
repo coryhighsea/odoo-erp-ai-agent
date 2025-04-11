@@ -1,0 +1,53 @@
+version: '3'
+services:
+  web:
+    image: odoo:17.0
+    depends_on:
+      - db
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=odoo
+      - AI_AGENT_URL=http://ai_agent:8000
+    networks:
+      - odoo-network
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=odoo
+      - POSTGRES_USER=odoo
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    networks:
+      - odoo-network
+  ai_agent:
+    build: ./ai_agent
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai_agent:/app
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ODOO_URL=http://web:8069
+      - ODOO_DB=HISEY
+      - ODOO_USERNAME=cjhisey@gmail.com
+      - ODOO_PASSWORD=odoo
+    depends_on:
+      - web
+    networks:
+      - odoo-network
+
+volumes:
+  odoo-web-data:
+  odoo-db-data:
+
+networks:
+  odoo-network:
+    driver: bridge

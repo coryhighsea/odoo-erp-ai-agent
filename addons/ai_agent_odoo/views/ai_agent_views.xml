@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ai_agent_form" model="ir.ui.view">
+        <field name="name">ai.agent.form</field>
+        <field name="model">ai.agent</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                        <field name="active" widget="boolean_button" options="{'terminology': 'archive'}"/>
+                    </button>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="AI Assistant Name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,active,archived"/>
+                    </group>
+                    <notebook>
+                        <page string="Chat Interface">
+                            <div class="oe_chat_container">
+                                <div class="oe_chat_messages" id="chat_messages">
+                                    <!-- Messages will be dynamically added here -->
+                                </div>
+                                <div class="oe_chat_input">
+                                    <input type="text" class="form-control" id="chat_input" placeholder="Type your message here..."/>
+                                    <button class="btn btn-primary" id="send_message">Send</button>
+                                </div>
+                            </div>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ai_agent" model="ir.actions.act_window">
+        <field name="name">AI Assistant</field>
+        <field name="res_model">ai.agent</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo> 
