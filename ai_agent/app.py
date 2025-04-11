@@ -40,6 +40,7 @@ if not ANTHROPIC_API_KEY:
 class ChatMessage(BaseModel):
     message: str
     context: Optional[dict] = None
+    conversation_history: Optional[List[dict]] = None
 
 def connect_to_odoo():
     """Establish connection to Odoo instance"""
@@ -171,6 +172,36 @@ def get_odoo_context():
             except Exception as e:
                 logger.error(f"Error fetching accounting data: {str(e)}")
         
+        # Include CRM data if crm module is installed
+        if 'crm' in installed_module_names:
+            try:
+                context['crm'] = {
+                    'leads': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'crm.lead', 'search_read',
+                        [[['type', '=', 'lead']]],
+                        {'fields': ['name', 'partner_id', 'email_from', 'phone', 'stage_id', 'probability', 'expected_revenue', 'create_date']}),
+                    'opportunities': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'crm.lead', 'search_read',
+                        [[['type', '=', 'opportunity']]],
+                        {'fields': ['name', 'partner_id', 'email_from', 'phone', 'stage_id', 'probability', 'expected_revenue', 'create_date']}),
+                    'activities': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'mail.activity', 'search_read',
+                        [[['res_model', '=', 'crm.lead']]],
+                        {'fields': ['res_id', 'activity_type_id', 'summary', 'date_deadline', 'user_id', 'state']}),
+                    'stages': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'crm.stage', 'search_read',
+                        [[]],
+                        {'fields': ['name', 'sequence', 'is_won']}),
+                    'contacts': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'res.partner', 'search_read',
+                        [[['active', '=', True]]],
+                        {'fields': ['name', 'email', 'phone', 'mobile', 'street', 'city', 'country_id', 
+                                  'function', 'title', 'type', 'parent_id', 'child_ids', 
+                                  'customer_rank', 'supplier_rank', 'create_date', 'write_date']}),
+                }
+            except Exception as e:
+                logger.error(f"Error fetching CRM data: {str(e)}")
+        
         logger.info(f"Retrieved context: {context}")
         return context
     except Exception as e:
@@ -202,7 +233,7 @@ def test_anthropic_connection():
         logger.error(f"Error args: {e.args}")
         return False
 
-def process_with_llm(message: str, context: dict):
+def process_with_llm(message: str, context: dict, conversation_history: List[dict] = None):
     """Process the message with Claude and return a response"""
     try:
         logger.info("Initializing Anthropic client...")
@@ -240,16 +271,23 @@ def process_with_llm(message: str, context: dict):
         - Use specific numbers and data from the context when available
         - Explain your reasoning when making suggestions
         - Highlight any potential issues or concerns
-        - Suggest next steps when appropriate"""
+        - Suggest next steps when appropriate
+        
+        IMPORTANT: Maintain context from previous messages in the conversation. If the user refers to something 
+        mentioned earlier (like a specific lead, customer, or order), use that information to provide relevant responses."""
+        
+        # Prepare messages array with conversation history
+        messages = []
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": message})
         
         logger.info("Sending request to Anthropic API...")
         response = client.messages.create(
             model="claude-3-5-haiku-20241022",
             max_tokens=2000,
             system=system_prompt,
-            messages=[
-                {"role": "user", "content": message}
-            ]
+            messages=messages
         )
         logger.info("Received response from Anthropic API")
         return response.content[0].text
@@ -288,6 +326,7 @@ async def chat(message: ChatMessage):
     try:
         logger.info(f"Received chat message: {message.message}")
         logger.info(f"Message context: {message.context}")
+        logger.info(f"Conversation history: {message.conversation_history}")
         
         # Get current Odoo context
         logger.info("Fetching Odoo context...")
@@ -296,7 +335,7 @@ async def chat(message: ChatMessage):
         
         # Process the message with LLM
         logger.info("Processing message with LLM...")
-        response = process_with_llm(message.message, context)
+        response = process_with_llm(message.message, context, message.conversation_history)
         logger.info("Successfully processed message")
         
         return {"response": response}
