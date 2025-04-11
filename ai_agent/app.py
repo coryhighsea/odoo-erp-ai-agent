@@ -1,12 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 import os
 from dotenv import load_dotenv
 import xmlrpc.client
 import anthropic
 import logging
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,12 @@ class ChatMessage(BaseModel):
     message: str
     context: Optional[dict] = None
     conversation_history: Optional[List[dict]] = None
+
+class DatabaseOperation(BaseModel):
+    model: str
+    method: str
+    args: List[Any]
+    kwargs: Dict[str, Any]
 
 def connect_to_odoo():
     """Establish connection to Odoo instance"""
@@ -233,6 +240,35 @@ def test_anthropic_connection():
         logger.error(f"Error args: {e.args}")
         return False
 
+def execute_database_operation(operation: DatabaseOperation):
+    """Execute a database operation safely"""
+    try:
+        logger.info(f"Executing database operation: {operation.model}.{operation.method}")
+        logger.info(f"Args: {operation.args}")
+        logger.info(f"Kwargs: {operation.kwargs}")
+        
+        # Connect to Odoo
+        common = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/common')
+        uid = common.authenticate(ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD, {})
+        models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object')
+        
+        # Execute the operation
+        result = models.execute_kw(
+            ODOO_DB, uid, ODOO_PASSWORD,
+            operation.model,
+            operation.method,
+            operation.args,
+            operation.kwargs
+        )
+        
+        logger.info(f"Operation successful. Result: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error executing database operation: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error args: {e.args}")
+        raise
+
 def process_with_llm(message: str, context: dict, conversation_history: List[dict] = None):
     """Process the message with Claude and return a response"""
     try:
@@ -266,6 +302,22 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         5. Help with accounting, invoices, and payments
         6. Provide insights about the data and suggest actions
         7. Analyze relationships between different aspects of the business
+        8. Make changes to the database when requested
+        
+        When making changes to the database, you should:
+        1. First confirm the change with the user
+        2. Use the appropriate model and method
+        3. Provide clear feedback about what was changed
+        
+        Available write operations:
+        - create: Create new records
+        - write: Update existing records
+        - unlink: Delete records
+        
+        Example operations:
+        - Create a new lead: {{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1}}]]}}
+        - Update a lead: {{"model": "crm.lead", "method": "write", "args": [[1], {{"name": "Updated Lead"}}]}}
+        - Delete a lead: {{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
         
         Always be professional and precise in your responses. When providing information:
         - Use specific numbers and data from the context when available
@@ -336,7 +388,17 @@ async def chat(message: ChatMessage):
         # Process the message with LLM
         logger.info("Processing message with LLM...")
         response = process_with_llm(message.message, context, message.conversation_history)
-        logger.info("Successfully processed message")
+        
+        # Check if the response contains a database operation
+        try:
+            if "DATABASE_OPERATION:" in response:
+                operation_json = response.split("DATABASE_OPERATION:")[1].strip()
+                operation = DatabaseOperation(**json.loads(operation_json))
+                result = execute_database_operation(operation)
+                response = response.split("DATABASE_OPERATION:")[0] + f"\nOperation successful: {result}"
+        except Exception as e:
+            logger.error(f"Error executing database operation: {str(e)}")
+            response = f"Error executing database operation: {str(e)}"
         
         return {"response": response}
     except Exception as e:
