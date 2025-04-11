@@ -1,11 +1,10 @@
-#setup and install
-#It runs in WSL with docker-compose
+# setup and install, It runs in WSL with docker-compose
 
 sudo apt update
 sudo apt install docker.io docker-compose
 sudo systemctl enable --now docker
 
-#initially docker in wsl didn't work but after these commands it worked
+# initially docker in wsl didn't work but after these commands it worked
 getent group docker
 sudo usermod -aG docker $USER
 newgrp docker
