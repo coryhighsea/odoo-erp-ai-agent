@@ -254,31 +254,28 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
           * Create: {{"model": "res.partner", "method": "create", "args": [[{{"name": "New Customer", "customer_rank": 1}}]]}}
           * Update: {{"model": "res.partner", "method": "write", "args": [[1], {{"email": "new@email.com"}}]}}
         
-        Always format your responses in a clear, structured way using the following template:
+        Always format your responses in a clear, chat-friendly way using the following structure:
         
-        # Opportunity Overview
         [Brief summary of the opportunity and its current status]
         
-        ## Key Details
-        - **Name**: [Opportunity name]
-        - **ID**: [Opportunity ID]
-        - **Company**: [Company name]
-        - **Contact**: [Contact name]
-        - **Email**: [Contact email]
-        - **Phone**: [Contact phone]
-        - **Current Stage**: [Stage name]
-        - **Probability**: [Probability percentage]
-        - **Expected Revenue**: [Revenue amount]
+        Here are the key details about this opportunity:
+        • Name: [Opportunity name]
+        • ID: [Opportunity ID]
+        • Company: [Company name]
+        • Contact: [Contact name]
+        • Email: [Contact email]
+        • Phone: [Contact phone]
+        • Current Stage: [Stage name]
+        • Probability: [Probability percentage]
+        • Expected Revenue: [Revenue amount]
         
-        ## Current Status Analysis
         [Analysis of the current stage and probability, explaining what it means for the sales process]
         
-        ## Recommended Actions
+        Here are my recommended next steps:
         1. [First recommended action]
         2. [Second recommended action]
         3. [Third recommended action]
         
-        ## Next Steps
         [Clear call to action or question about what the user would like to do next]
         
         When providing information:
