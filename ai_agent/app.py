@@ -73,138 +73,59 @@ def get_odoo_context():
         uid = common.authenticate(ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD, {})
         models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object')
         
-        logger.info("Fetching data...")
+        logger.info("Fetching CRM data...")
         context = {}
         
-        # Check which modules are installed
-        installed_modules = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-            'ir.module.module', 'search_read',
-            [[['state', '=', 'installed']]],
-            {'fields': ['name']})
-        installed_module_names = [m['name'] for m in installed_modules]
-        logger.info(f"Installed modules: {installed_module_names}")
+        # Get CRM-specific data
+        try:
+            # Get leads and opportunities
+            leads = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                'crm.lead', 'search_read',
+                [[]],
+                {'fields': ['name', 'partner_id', 'type', 'stage_id', 'probability', 'expected_revenue', 'create_date', 'user_id']})
+            context['leads'] = leads
+            
+            # Get pipeline stages
+            stages = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                'crm.stage', 'search_read',
+                [[]],
+                {'fields': ['name', 'sequence', 'is_won', 'is_lost']})
+            context['stages'] = stages
+            
+            # Get sales teams
+            teams = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                'crm.team', 'search_read',
+                [[]],
+                {'fields': ['name', 'member_ids', 'alias_id']})
+            context['teams'] = teams
+            
+            # Get activity types
+            activity_types = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                'mail.activity.type', 'search_read',
+                [[['res_model', '=', 'crm.lead']]],
+                {'fields': ['name', 'category', 'delay_count', 'delay_unit']})
+            context['activity_types'] = activity_types
+            
+            # Get recent activities
+            activities = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                'mail.activity', 'search_read',
+                [[['res_model', '=', 'crm.lead']]],
+                {'fields': ['res_id', 'activity_type_id', 'summary', 'date_deadline', 'user_id', 'state']})
+            context['activities'] = activities
+            
+            # Get customer data
+            customers = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                'res.partner', 'search_read',
+                [[['customer_rank', '>', 0]]],
+                {'fields': ['name', 'email', 'phone', 'street', 'city', 'country_id', 'customer_rank']})
+            context['customers'] = customers
+            
+        except Exception as e:
+            logger.error(f"Error fetching CRM data: {str(e)}")
+            logger.error(f"Error type: {type(e)}")
+            logger.error(f"Error args: {e.args}")
         
-        # Define module-specific data fetchers
-        module_fetchers = {
-            'stock': {
-                'name': 'inventory',
-                'fetch': lambda: {
-                    'products': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'product.product', 'search_read',
-                        [[['type', '=', 'product']]],
-                        {'fields': ['name', 'qty_available', 'virtual_available', 'standard_price']}),
-                    'categories': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'product.category', 'search_read',
-                        [[]],
-                        {'fields': ['name', 'parent_id']}),
-                }
-            },
-            'mrp': {
-                'name': 'manufacturing',
-                'fetch': lambda: {
-                    'boms': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'mrp.bom', 'search_read',
-                        [[]],
-                        {'fields': ['product_tmpl_id', 'product_qty', 'code']}),
-                    'workcenters': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'mrp.workcenter', 'search_read',
-                        [[]],
-                        {'fields': ['name', 'resource_calendar_id', 'time_efficiency']}),
-                    'production_orders': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'mrp.production', 'search_read',
-                        [[['state', 'in', ['draft', 'confirmed', 'progress']]]],
-                        {'fields': ['name', 'product_id', 'product_qty', 'state']}),
-                }
-            },
-            'sale': {
-                'name': 'sales',
-                'fetch': lambda: {
-                    'orders': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'sale.order', 'search_read',
-                        [[['state', 'in', ['draft', 'sent', 'sale']]]],
-                        {'fields': ['name', 'partner_id', 'amount_total', 'state', 'date_order']}),
-                    'order_lines': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'sale.order.line', 'search_read',
-                        [[['order_id.state', 'in', ['draft', 'sent', 'sale']]]],
-                        {'fields': ['order_id', 'product_id', 'product_uom_qty', 'price_unit', 'price_subtotal']}),
-                    'customers': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'res.partner', 'search_read',
-                        [[['customer_rank', '>', 0]]],
-                        {'fields': ['name', 'email', 'phone', 'street', 'city', 'country_id']}),
-                }
-            },
-            'purchase': {
-                'name': 'purchasing',
-                'fetch': lambda: {
-                    'orders': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'purchase.order', 'search_read',
-                        [[['state', 'in', ['draft', 'sent', 'purchase']]]],
-                        {'fields': ['name', 'partner_id', 'amount_total', 'state', 'date_order', 'date_planned']}),
-                    'order_lines': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'purchase.order.line', 'search_read',
-                        [[['order_id.state', 'in', ['draft', 'sent', 'purchase']]]],
-                        {'fields': ['order_id', 'product_id', 'product_qty', 'price_unit', 'price_subtotal']}),
-                    'suppliers': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'res.partner', 'search_read',
-                        [[['supplier_rank', '>', 0]]],
-                        {'fields': ['name', 'email', 'phone', 'street', 'city', 'country_id']}),
-                }
-            },
-            'account': {
-                'name': 'accounting',
-                'fetch': lambda: {
-                    'invoices': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'account.move', 'search_read',
-                        [[['move_type', 'in', ['out_invoice', 'in_invoice']], ['state', '!=', 'cancel']]],
-                        {'fields': ['name', 'partner_id', 'amount_total', 'state', 'invoice_date', 'invoice_date_due', 'payment_state']}),
-                    'invoice_lines': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'account.move.line', 'search_read',
-                        [[['move_id.move_type', 'in', ['out_invoice', 'in_invoice']], ['move_id.state', '!=', 'cancel']]],
-                        {'fields': ['move_id', 'product_id', 'quantity', 'price_unit', 'price_subtotal']}),
-                    'payments': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'account.payment', 'search_read',
-                        [[['state', '!=', 'cancel']]],
-                        {'fields': ['name', 'partner_id', 'amount', 'payment_type', 'date', 'state']}),
-                }
-            },
-            'crm': {
-                'name': 'crm',
-                'fetch': lambda: {
-                    'leads': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'crm.lead', 'search_read',
-                        [[['type', '=', 'lead']]],
-                        {'fields': ['name', 'partner_id', 'email_from', 'phone', 'stage_id', 'probability', 'expected_revenue', 'create_date']}),
-                    'opportunities': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'crm.lead', 'search_read',
-                        [[['type', '=', 'opportunity']]],
-                        {'fields': ['name', 'partner_id', 'email_from', 'phone', 'stage_id', 'probability', 'expected_revenue', 'create_date']}),
-                    'activities': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'mail.activity', 'search_read',
-                        [[['res_model', '=', 'crm.lead']]],
-                        {'fields': ['res_id', 'activity_type_id', 'summary', 'date_deadline', 'user_id', 'state']}),
-                    'stages': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'crm.stage', 'search_read',
-                        [[]],
-                        {'fields': ['name', 'sequence', 'is_won']}),
-                }
-            }
-        }
-        
-        # Fetch data for each installed module
-        for module_name, fetcher in module_fetchers.items():
-            if module_name in installed_module_names:
-                try:
-                    logger.info(f"Fetching data for module: {module_name}")
-                    context[fetcher['name']] = fetcher['fetch']()
-                    logger.info(f"Successfully fetched data for {module_name}")
-                except Exception as e:
-                    logger.error(f"Error fetching data for module {module_name}: {str(e)}")
-                    logger.error(f"Error type: {type(e)}")
-                    logger.error(f"Error args: {e.args}")
-                    # Continue with other modules even if one fails
-                    continue
-        
-        logger.info(f"Retrieved context: {context}")
+        logger.info(f"Retrieved CRM context: {context}")
         return context
     except Exception as e:
         logger.error(f"Error getting Odoo context: {str(e)}")
@@ -285,43 +206,89 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         
         logger.info(f"Formatted context being sent to LLM: {context_str}")
         
-        system_prompt = f"""You are an AI assistant for an Odoo ERP system. 
+        system_prompt = f"""You are an AI assistant specialized in CRM operations for an Odoo ERP system. 
         You have access to the following context about the system:
         {context_str}
         
-        Your task is to help users with their ERP operations. You can:
-        1. Answer questions about inventory levels, products, and categories
-        2. Help with manufacturing processes, BOMs, and work centers
-        3. Provide information about sales orders and customers
-        4. Assist with purchase orders and supplier information
-        5. Help with accounting, invoices, and payments
-        6. Provide insights about the data and suggest actions
-        7. Analyze relationships between different aspects of the business
-        8. Make changes to the database when requested
+        Your primary focus is on managing customer relationships and sales opportunities. You can:
+        1. Manage leads and opportunities:
+           - Create, update, and track leads
+           - Update opportunity stages and probabilities
+           - Schedule follow-ups and activities
+           - Assign leads to sales teams
+        2. Handle customer information:
+           - View and update customer details
+           - Track customer interactions
+           - Manage customer tags and segments
+        3. Sales pipeline management:
+           - Monitor pipeline stages
+           - Update deal values and probabilities
+           - Track conversion rates
+           - Identify bottlenecks
+        4. Activity management:
+           - Schedule calls, meetings, and tasks
+           - Set reminders and deadlines
+           - Track activity completion
+        5. Reporting and analytics:
+           - Provide pipeline status updates
+           - Analyze conversion rates
+           - Track team performance
+           - Identify trends and opportunities
         
         When making changes to the database, you should:
         1. First confirm the change with the user
         2. Use the appropriate model and method
         3. Provide clear feedback about what was changed
         
-        Available write operations:
-        - create: Create new records
-        - write: Update existing records
-        - unlink: Delete records
+        Available CRM operations:
+        - Lead/Opportunity Operations:
+          * Create: {{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1, "type": "opportunity", "stage_id": 1}}]]}}
+          * Update: {{"model": "crm.lead", "method": "write", "args": [[1], {{"probability": 100, "stage_id": 4}}]}}
+          * Delete: {{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
         
-        Example operations:
-        - Create a new lead: {{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1}}]]}}
-        - Update a lead: {{"model": "crm.lead", "method": "write", "args": [[1], {{"name": "Updated Lead"}}]}}
-        - Delete a lead: {{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
+        - Activity Operations:
+          * Create: {{"model": "mail.activity", "method": "create", "args": [[{{"res_model": "crm.lead", "res_id": 1, "activity_type_id": 1, "summary": "Call client"}}]]}}
+          * Update: {{"model": "mail.activity", "method": "write", "args": [[1], {{"state": "done"}}]}}
         
-        Always be professional and precise in your responses. When providing information:
+        - Customer Operations:
+          * Create: {{"model": "res.partner", "method": "create", "args": [[{{"name": "New Customer", "customer_rank": 1}}]]}}
+          * Update: {{"model": "res.partner", "method": "write", "args": [[1], {{"email": "new@email.com"}}]}}
+        
+        Always format your responses in a clear, structured way using the following template:
+        
+        # Opportunity Overview
+        [Brief summary of the opportunity and its current status]
+        
+        ## Key Details
+        - **Name**: [Opportunity name]
+        - **ID**: [Opportunity ID]
+        - **Company**: [Company name]
+        - **Contact**: [Contact name]
+        - **Email**: [Contact email]
+        - **Phone**: [Contact phone]
+        - **Current Stage**: [Stage name]
+        - **Probability**: [Probability percentage]
+        - **Expected Revenue**: [Revenue amount]
+        
+        ## Current Status Analysis
+        [Analysis of the current stage and probability, explaining what it means for the sales process]
+        
+        ## Recommended Actions
+        1. [First recommended action]
+        2. [Second recommended action]
+        3. [Third recommended action]
+        
+        ## Next Steps
+        [Clear call to action or question about what the user would like to do next]
+        
+        When providing information:
         - Use specific numbers and data from the context when available
         - Explain your reasoning when making suggestions
         - Highlight any potential issues or concerns
         - Suggest next steps when appropriate
         
         IMPORTANT: Maintain context from previous messages in the conversation. If the user refers to something 
-        mentioned earlier (like a specific lead, customer, or order), use that information to provide relevant responses."""
+        mentioned earlier (like a specific lead, customer, or activity), use that information to provide relevant responses."""
         
         # Prepare messages array with conversation history
         messages = []
