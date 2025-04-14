@@ -84,25 +84,24 @@ def get_odoo_context():
         installed_module_names = [m['name'] for m in installed_modules]
         logger.info(f"Installed modules: {installed_module_names}")
         
-        # Always include inventory data as it's part of the base system
-        try:
-            context['inventory'] = {
-                'products': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                    'product.product', 'search_read',
-                    [[['type', '=', 'product']]],
-                    {'fields': ['name', 'qty_available', 'virtual_available', 'standard_price']}),
-                'categories': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                    'product.category', 'search_read',
-                    [[]],
-                    {'fields': ['name', 'parent_id']}),
-            }
-        except Exception as e:
-            logger.error(f"Error fetching inventory data: {str(e)}")
-        
-        # Include manufacturing data if mrp module is installed
-        if 'mrp' in installed_module_names:
-            try:
-                context['manufacturing'] = {
+        # Define module-specific data fetchers
+        module_fetchers = {
+            'stock': {
+                'name': 'inventory',
+                'fetch': lambda: {
+                    'products': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'product.product', 'search_read',
+                        [[['type', '=', 'product']]],
+                        {'fields': ['name', 'qty_available', 'virtual_available', 'standard_price']}),
+                    'categories': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
+                        'product.category', 'search_read',
+                        [[]],
+                        {'fields': ['name', 'parent_id']}),
+                }
+            },
+            'mrp': {
+                'name': 'manufacturing',
+                'fetch': lambda: {
                     'boms': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
                         'mrp.bom', 'search_read',
                         [[]],
@@ -116,13 +115,10 @@ def get_odoo_context():
                         [[['state', 'in', ['draft', 'confirmed', 'progress']]]],
                         {'fields': ['name', 'product_id', 'product_qty', 'state']}),
                 }
-            except Exception as e:
-                logger.error(f"Error fetching manufacturing data: {str(e)}")
-        
-        # Include sales data if sale module is installed
-        if 'sale' in installed_module_names:
-            try:
-                context['sales'] = {
+            },
+            'sale': {
+                'name': 'sales',
+                'fetch': lambda: {
                     'orders': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
                         'sale.order', 'search_read',
                         [[['state', 'in', ['draft', 'sent', 'sale']]]],
@@ -136,13 +132,10 @@ def get_odoo_context():
                         [[['customer_rank', '>', 0]]],
                         {'fields': ['name', 'email', 'phone', 'street', 'city', 'country_id']}),
                 }
-            except Exception as e:
-                logger.error(f"Error fetching sales data: {str(e)}")
-        
-        # Include purchasing data if purchase module is installed
-        if 'purchase' in installed_module_names:
-            try:
-                context['purchasing'] = {
+            },
+            'purchase': {
+                'name': 'purchasing',
+                'fetch': lambda: {
                     'orders': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
                         'purchase.order', 'search_read',
                         [[['state', 'in', ['draft', 'sent', 'purchase']]]],
@@ -156,13 +149,10 @@ def get_odoo_context():
                         [[['supplier_rank', '>', 0]]],
                         {'fields': ['name', 'email', 'phone', 'street', 'city', 'country_id']}),
                 }
-            except Exception as e:
-                logger.error(f"Error fetching purchasing data: {str(e)}")
-        
-        # Include accounting data if account module is installed
-        if 'account' in installed_module_names:
-            try:
-                context['accounting'] = {
+            },
+            'account': {
+                'name': 'accounting',
+                'fetch': lambda: {
                     'invoices': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
                         'account.move', 'search_read',
                         [[['move_type', 'in', ['out_invoice', 'in_invoice']], ['state', '!=', 'cancel']]],
@@ -176,13 +166,10 @@ def get_odoo_context():
                         [[['state', '!=', 'cancel']]],
                         {'fields': ['name', 'partner_id', 'amount', 'payment_type', 'date', 'state']}),
                 }
-            except Exception as e:
-                logger.error(f"Error fetching accounting data: {str(e)}")
-        
-        # Include CRM data if crm module is installed
-        if 'crm' in installed_module_names:
-            try:
-                context['crm'] = {
+            },
+            'crm': {
+                'name': 'crm',
+                'fetch': lambda: {
                     'leads': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
                         'crm.lead', 'search_read',
                         [[['type', '=', 'lead']]],
@@ -199,15 +186,23 @@ def get_odoo_context():
                         'crm.stage', 'search_read',
                         [[]],
                         {'fields': ['name', 'sequence', 'is_won']}),
-                    'contacts': models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
-                        'res.partner', 'search_read',
-                        [[['active', '=', True]]],
-                        {'fields': ['name', 'email', 'phone', 'mobile', 'street', 'city', 'country_id', 
-                                  'function', 'title', 'type', 'parent_id', 'child_ids', 
-                                  'customer_rank', 'supplier_rank', 'create_date', 'write_date']}),
                 }
-            except Exception as e:
-                logger.error(f"Error fetching CRM data: {str(e)}")
+            }
+        }
+        
+        # Fetch data for each installed module
+        for module_name, fetcher in module_fetchers.items():
+            if module_name in installed_module_names:
+                try:
+                    logger.info(f"Fetching data for module: {module_name}")
+                    context[fetcher['name']] = fetcher['fetch']()
+                    logger.info(f"Successfully fetched data for {module_name}")
+                except Exception as e:
+                    logger.error(f"Error fetching data for module {module_name}: {str(e)}")
+                    logger.error(f"Error type: {type(e)}")
+                    logger.error(f"Error args: {e.args}")
+                    # Continue with other modules even if one fails
+                    continue
         
         logger.info(f"Retrieved context: {context}")
         return context
