@@ -3,5 +3,8 @@ anthropic>=0.18.1
 fastapi==0.109.2
 uvicorn==0.27.1
 python-dotenv==1.0.1
-pydantic==2.6.1
-httpx>=0.26.0 
+pydantic>=2.10.0
+pydantic-ai==0.0.55
+python-multipart==0.0.9
+httpx>=0.26.0
+requests>=2.32.3 

@@ -61,6 +61,11 @@ class AIAgentForm extends Component {
             
             const data = await response.json();
             
+            // Handle the new response format
+            if (data.status === "error") {
+                throw new Error(data.error || "Unknown error occurred");
+            }
+            
             // Check if the response contains Odoo commands
             const odooCommands = this.extractOdooCommands(data.response);
             if (odooCommands.length > 0) {

@@ -1,6 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.usage import UsageLimits
+from pydantic_ai.models.anthropic import AnthropicModelSettings
 from typing import List, Optional, Any, Dict
 import os
 from dotenv import load_dotenv
@@ -8,6 +11,7 @@ import xmlrpc.client
 import anthropic
 import logging
 import json
+from dataclasses import dataclass
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +25,12 @@ app = FastAPI()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8069"],  # Odoo frontend URL
+    allow_origins=["http://localhost:8069", "http://127.0.0.1:8069"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 # Odoo connection settings
@@ -39,15 +45,25 @@ if not ANTHROPIC_API_KEY:
     raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
 
 class ChatMessage(BaseModel):
-    message: str
-    context: Optional[dict] = None
-    conversation_history: Optional[List[dict]] = None
+    message: str = Field(..., description="The user's message to process")
+    context: Optional[Dict[str, Any]] = Field(None, description="Additional context for the message")
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(None, description="Previous messages in the conversation")
+
+    class Config:
+        model = "claude-3-5-haiku-20241022"
+        max_tokens = 2000
+        temperature = 0.7
 
 class DatabaseOperation(BaseModel):
-    model: str
-    method: str
-    args: List[Any]
-    kwargs: Dict[str, Any]
+    model: str = Field(..., description="The Odoo model to operate on")
+    method: str = Field(..., description="The method to call on the model")
+    args: List[Any] = Field(default_factory=list, description="Positional arguments for the method")
+    kwargs: Dict[str, Any] = Field(default_factory=dict, description="Keyword arguments for the method")
+
+    class Config:
+        model = "claude-3-5-haiku-20241022"
+        max_tokens = 1000
+        temperature = 0.3
 
 def connect_to_odoo():
     """Establish connection to Odoo instance"""
@@ -185,131 +201,137 @@ def execute_database_operation(operation: DatabaseOperation):
         logger.error(f"Error args: {e.args}")
         raise
 
-def process_with_llm(message: str, context: dict, conversation_history: List[dict] = None):
-    """Process the message with Claude and return a response"""
-    try:
-        logger.info("Initializing Anthropic client...")
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        
-        # Convert context to a readable format
-        context_str = ""
-        if context:
-            for section, data in context.items():
-                context_str += f"\n{section.upper()}:\n"
-                if isinstance(data, list):
-                    for item in data:
-                        if isinstance(item, dict):
-                            context_str += "- " + ", ".join(f"{k}: {v}" for k, v in item.items()) + "\n"
-                        else:
-                            context_str += f"- {item}\n"
-                elif isinstance(data, dict):
-                    context_str += "- " + ", ".join(f"{k}: {v}" for k, v in data.items()) + "\n"
-                else:
-                    context_str += f"- {data}\n"
-        
-        logger.info(f"Formatted context being sent to LLM: {context_str}")
-        
-        system_prompt = f"""You are an AI assistant specialized in CRM operations for an Odoo ERP system. 
-        You have access to the following context about the system:
-        {context_str}
-        
-        Your primary focus is on managing customer relationships and sales opportunities. You can:
-        1. Manage leads and opportunities:
-           - Create, update, and track leads
-           - Update opportunity stages and probabilities
-           - Schedule follow-ups and activities
-           - Assign leads to sales teams
-        2. Handle customer information:
-           - View and update customer details
-           - Track customer interactions
-           - Manage customer tags and segments
-        3. Sales pipeline management:
-           - Monitor pipeline stages
-           - Update deal values and probabilities
-           - Track conversion rates
-           - Identify bottlenecks
-        4. Activity management:
-           - Schedule calls, meetings, and tasks
-           - Set reminders and deadlines
-           - Track activity completion
-        5. Reporting and analytics:
-           - Provide pipeline status updates
-           - Analyze conversion rates
-           - Track team performance
-           - Identify trends and opportunities
-        
-        When making changes to the database, you should:
-        1. First confirm the change with the user
-        2. Use the appropriate model and method
-        3. Provide clear feedback about what was changed
-        
-        Available CRM operations:
-        - Lead/Opportunity Operations:
-          * Create: {{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1, "type": "opportunity", "stage_id": 1}}]]}}
-          * Update: {{"model": "crm.lead", "method": "write", "args": [[1], {{"probability": 100, "stage_id": 4}}]}}
-          * Delete: {{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
-        
-        - Activity Operations:
-          * Create: {{"model": "mail.activity", "method": "create", "args": [[{{"res_model": "crm.lead", "res_id": 1, "activity_type_id": 1, "summary": "Call client"}}]]}}
-          * Update: {{"model": "mail.activity", "method": "write", "args": [[1], {{"state": "done"}}]}}
-        
-        - Customer Operations:
-          * Create: {{"model": "res.partner", "method": "create", "args": [[{{"name": "New Customer", "customer_rank": 1}}]]}}
-          * Update: {{"model": "res.partner", "method": "write", "args": [[1], {{"email": "new@email.com"}}]}}
-        
-        Always format your responses in a clear, chat-friendly way using the following structure:
-        
-        [Brief summary of the opportunity and its current status]
-        
-        Here are the key details about this opportunity:
-        • Name: [Opportunity name]
-        • ID: [Opportunity ID]
-        • Company: [Company name]
-        • Contact: [Contact name]
-        • Email: [Contact email]
-        • Phone: [Contact phone]
-        • Current Stage: [Stage name]
-        • Probability: [Probability percentage]
-        • Expected Revenue: [Revenue amount]
-        
-        [Analysis of the current stage and probability, explaining what it means for the sales process]
-        
-        Here are my recommended next steps:
-        1. [First recommended action]
-        2. [Second recommended action]
-        3. [Third recommended action]
-        
-        [Clear call to action or question about what the user would like to do next]
-        
-        When providing information:
-        - Use specific numbers and data from the context when available
-        - Explain your reasoning when making suggestions
-        - Highlight any potential issues or concerns
-        - Suggest next steps when appropriate
-        
-        IMPORTANT: Maintain context from previous messages in the conversation. If the user refers to something 
-        mentioned earlier (like a specific lead, customer, or activity), use that information to provide relevant responses."""
-        
-        # Prepare messages array with conversation history
-        messages = []
-        if conversation_history:
-            messages.extend(conversation_history)
-        messages.append({"role": "user", "content": message})
-        
-        logger.info("Sending request to Anthropic API...")
-        response = client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=2000,
-            system=system_prompt,
-            messages=messages
+@dataclass
+class CRMContext:
+    """Dependencies for the CRM agent"""
+    leads: List[Dict[str, Any]]
+    stages: List[Dict[str, Any]]
+    teams: List[Dict[str, Any]]
+    activity_types: List[Dict[str, Any]]
+    activities: List[Dict[str, Any]]
+    customers: List[Dict[str, Any]]
+
+class CRMAgent(Agent[CRMContext, str]):
+    """AI agent specialized in CRM operations"""
+    
+    def __init__(self):
+        super().__init__(
+            'anthropic:claude-3-5-haiku-20241022',
+            deps_type=CRMContext,
+            result_type=str,
+            model_settings=AnthropicModelSettings(
+                temperature=0.7,
+                max_tokens=2000
+            ),
+            system_prompt="""You are an AI assistant specialized in CRM operations for an Odoo ERP system. 
+            Your primary focus is on managing customer relationships and sales opportunities. You can:
+            1. Manage leads and opportunities:
+               - Create, update, and track leads
+               - Update opportunity stages and probabilities
+               - Schedule follow-ups and activities
+               - Assign leads to sales teams
+            2. Handle customer information:
+               - View and update customer details
+               - Track customer interactions
+               - Manage customer tags and segments
+            3. Sales pipeline management:
+               - Monitor pipeline stages
+               - Update deal values and probabilities
+               - Track conversion rates
+               - Identify bottlenecks
+            4. Activity management:
+               - Schedule calls, meetings, and tasks
+               - Set reminders and deadlines
+               - Track activity completion
+            5. Reporting and analytics:
+               - Provide pipeline status updates
+               - Analyze conversion rates
+               - Track team performance
+               - Identify trends and opportunities
+            
+            When making changes to the database, you should:
+            1. First confirm the change with the user
+            2. Use the appropriate model and method
+            3. Provide clear feedback about what was changed
+            
+            Available CRM operations:
+            - Lead/Opportunity Operations:
+              * Create: {{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1, "type": "opportunity", "stage_id": 1}}]]}}
+              * Update: {{"model": "crm.lead", "method": "write", "args": [[1], {{"probability": 100, "stage_id": 4}}]}}
+              * Delete: {{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
+            
+            - Activity Operations:
+              * Create: {{"model": "mail.activity", "method": "create", "args": [[{{"res_model": "crm.lead", "res_id": 1, "activity_type_id": 1, "summary": "Call client"}}]]}}
+              * Update: {{"model": "mail.activity", "method": "write", "args": [[1], {{"state": "done"}}]}}
+            
+            - Customer Operations:
+              * Create: {{"model": "res.partner", "method": "create", "args": [[{{"name": "New Customer", "customer_rank": 1}}]]}}
+              * Update: {{"model": "res.partner", "method": "write", "args": [[1], {{"email": "new@email.com"}}]}}
+            
+            Always format your responses in a clear, chat-friendly way using the following structure:
+            
+            [Brief summary of the opportunity and its current status]
+            
+            Here are the key details about this opportunity:
+            • Name: [Opportunity name]
+            • ID: [Opportunity ID]
+            • Company: [Company name]
+            • Contact: [Contact name]
+            • Email: [Contact email]
+            • Phone: [Contact phone]
+            • Current Stage: [Stage name]
+            • Probability: [Probability percentage]
+            • Expected Revenue: [Revenue amount]
+            
+            [Analysis of the current stage and probability, explaining what it means for the sales process]
+            
+            Here are my recommended next steps:
+            1. [First recommended action]
+            2. [Second recommended action]
+            3. [Third recommended action]
+            
+            [Clear call to action or question about what the user would like to do next]
+            
+            When providing information:
+            - Use specific numbers and data from the context when available
+            - Explain your reasoning when making suggestions
+            - Highlight any potential issues or concerns
+            - Suggest next steps when appropriate
+            
+            IMPORTANT: Maintain context from previous messages in the conversation. If the user refers to something 
+            mentioned earlier (like a specific lead, customer, or activity), use that information to provide relevant responses."""
         )
-        logger.info("Received response from Anthropic API")
-        return response.content[0].text
-    except Exception as e:
-        logger.error(f"Error in LLM processing: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        logger.error(f"Error args: {e.args}")
-        raise
+    
+    async def process_message(self, message: str, context: Dict[str, Any], conversation_history: List[Dict[str, Any]] = None) -> str:
+        """Process a message with context and conversation history"""
+        try:
+            # Convert context to CRMContext
+            crm_context = CRMContext(
+                leads=context.get('leads', []),
+                stages=context.get('stages', []),
+                teams=context.get('teams', []),
+                activity_types=context.get('activity_types', []),
+                activities=context.get('activities', []),
+                customers=context.get('customers', [])
+            )
+            
+            # Run the agent with the message and context
+            result = await self.run(
+                message,
+                deps=crm_context,
+                usage_limits=UsageLimits(
+                    response_tokens_limit=2000,
+                    request_limit=5
+                )
+            )
+            
+            return result.data
+        except Exception as e:
+            logger.error(f"Error in agent processing: {str(e)}")
+            raise
+
+# Initialize the CRM agent
+crm_agent = CRMAgent()
 
 @app.get("/ping")
 async def ping():
@@ -337,37 +359,32 @@ async def ping():
 
 @app.post("/chat")
 async def chat(message: ChatMessage):
+    """Process a chat message with the CRM agent"""
     try:
-        logger.info(f"Received chat message: {message.message}")
-        logger.info(f"Message context: {message.context}")
-        logger.info(f"Conversation history: {message.conversation_history}")
-        
         # Get current Odoo context
-        logger.info("Fetching Odoo context...")
         context = get_odoo_context()
-        logger.info(f"Retrieved Odoo context: {context}")
         
-        # Process the message with LLM
-        logger.info("Processing message with LLM...")
-        response = process_with_llm(message.message, context, message.conversation_history)
+        # Process the message with the CRM agent
+        response = await crm_agent.process_message(
+            message.message,
+            context,
+            message.conversation_history
+        )
         
-        # Check if the response contains a database operation
-        try:
-            if "DATABASE_OPERATION:" in response:
-                operation_json = response.split("DATABASE_OPERATION:")[1].strip()
-                operation = DatabaseOperation(**json.loads(operation_json))
-                result = execute_database_operation(operation)
-                response = response.split("DATABASE_OPERATION:")[0] + f"\nOperation successful: {result}"
-        except Exception as e:
-            logger.error(f"Error executing database operation: {str(e)}")
-            response = f"Error executing database operation: {str(e)}"
-        
-        return {"response": response}
+        # Return success response
+        return {
+            "status": "success",
+            "error": None,
+            "response": response
+        }
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        logger.error(f"Error args: {e.args}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return error response with consistent format
+        return {
+            "status": "error",
+            "error": str(e),
+            "response": None
+        }
 
 if __name__ == "__main__":
     import uvicorn
