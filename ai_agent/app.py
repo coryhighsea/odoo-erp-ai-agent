@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.usage import UsageLimits
-from pydantic_ai.models.anthropic import AnthropicModelSettings
+from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
+from pydantic_ai.providers.anthropic import AnthropicProvider
 from typing import List, Optional, Any, Dict, Tuple
 import os
 from dotenv import load_dotenv
@@ -198,21 +199,40 @@ def connect_to_odoo():
         logger.error(f"Error connecting to Odoo: {str(e)}")
         raise
 
-def test_anthropic_connection():
+async def test_anthropic_connection():
     """Test the connection to Anthropic API"""
     try:
         logger.info("Testing Anthropic API connection...")
         logger.info(f"API Key length: {len(ANTHROPIC_API_KEY)}")
         logger.info(f"API Key prefix: {ANTHROPIC_API_KEY[:10]}...")
         
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        response = client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=100,
-            messages=[
-                {"role": "user", "content": "Hello, this is a test message."}
-            ]
+        # Create a test model with the provider
+        model = AnthropicModel(
+            'claude-3-5-haiku-20241022',
+            provider=AnthropicProvider(api_key=ANTHROPIC_API_KEY)
         )
+        
+        # Test the connection by creating a simple agent
+        test_agent = Agent(model, deps_type=CRMContext, result_type=str)
+        
+        # Create a minimal context for testing
+        test_context = CRMContext(
+            odoo_url=ODOO_URL,
+            odoo_db=ODOO_DB,
+            odoo_username=ODOO_USERNAME,
+            odoo_password=ODOO_PASSWORD
+        )
+        
+        # Run a test message
+        result = await test_agent.run(
+            "Hello, this is a test message.",
+            deps=test_context,
+            usage_limits=UsageLimits(
+                response_tokens_limit=100,
+                request_limit=1
+            )
+        )
+        
         logger.info("Anthropic API connection successful!")
         return True
     except Exception as e:
@@ -254,14 +274,17 @@ class CRMAgent(Agent[CRMContext, str]):
     """AI agent specialized in CRM operations"""
     
     def __init__(self):
+        # Initialize the Anthropic model
+        model = AnthropicModel(
+            'claude-3-5-haiku-20241022',
+            provider=AnthropicProvider(api_key=ANTHROPIC_API_KEY)
+        )
+        
+        # Initialize the agent with the model
         super().__init__(
-            'anthropic:claude-3-5-haiku-20241022',
+            model,
             deps_type=CRMContext,
-            result_type=str,
-            model_settings=AnthropicModelSettings(
-                temperature=0.7,
-                max_tokens=2000
-            )
+            result_type=str
         )
     
     @Agent.system_prompt
@@ -386,7 +409,7 @@ async def ping():
     """Test endpoint to verify service health"""
     try:
         # Test Anthropic API connection
-        anthropic_connected = test_anthropic_connection()
+        anthropic_connected = await test_anthropic_connection()
         
         # Test Odoo connection
         try:
