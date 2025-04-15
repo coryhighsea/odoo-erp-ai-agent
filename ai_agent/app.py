@@ -85,11 +85,11 @@ def get_odoo_context():
                 {'fields': ['name', 'partner_id', 'type', 'stage_id', 'probability', 'expected_revenue', 'create_date', 'user_id']})
             context['leads'] = leads
             
-            # Get pipeline stages
+            # Get pipeline stages - removed is_lost field as it's not available
             stages = models.execute_kw(ODOO_DB, uid, ODOO_PASSWORD,
                 'crm.stage', 'search_read',
                 [[]],
-                {'fields': ['name', 'sequence', 'is_won', 'is_lost']})
+                {'fields': ['name', 'sequence', 'is_won']})
             context['stages'] = stages
             
             # Get sales teams
@@ -196,13 +196,16 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         if context:
             for section, data in context.items():
                 context_str += f"\n{section.upper()}:\n"
-                for key, items in data.items():
-                    context_str += f"\n{key}:\n"
-                    if isinstance(items, list):
-                        for item in items:
+                if isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict):
+                            context_str += "- " + ", ".join(f"{k}: {v}" for k, v in item.items()) + "\n"
+                        else:
                             context_str += f"- {item}\n"
-                    else:
-                        context_str += f"- {items}\n"
+                elif isinstance(data, dict):
+                    context_str += "- " + ", ".join(f"{k}: {v}" for k, v in data.items()) + "\n"
+                else:
+                    context_str += f"- {data}\n"
         
         logger.info(f"Formatted context being sent to LLM: {context_str}")
         
