@@ -47,7 +47,7 @@ class DatabaseOperation(BaseModel):
     model: str
     method: str
     args: List[Any]
-    kwargs: Dict[str, Any]
+    kwargs: Dict[str, Any] = {}
 
 def connect_to_odoo():
     """Establish connection to Odoo instance"""
@@ -310,9 +310,9 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         - unlink: Delete records
         
         Example operations:
-        - Create a new lead: {{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1}}]]}}
-        - Update a lead: {{"model": "crm.lead", "method": "write", "args": [[1], {{"name": "Updated Lead"}}]}}
-        - Delete a lead: {{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
+        - Create a new lead: DATABASE_OPERATION:{{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1}}]]}}
+        - Update a lead: DATABASE_OPERATION:{{"model": "crm.lead", "method": "write", "args": [[1], {{"name": "Updated Lead"}}]]}}
+        - Delete a lead: DATABASE_OPERATION:{{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
         
         Always be professional and precise in your responses. When providing information:
         - Use specific numbers and data from the context when available
@@ -387,13 +387,25 @@ async def chat(message: ChatMessage):
         # Check if the response contains a database operation
         try:
             if "DATABASE_OPERATION:" in response:
-                operation_json = response.split("DATABASE_OPERATION:")[1].strip()
-                operation = DatabaseOperation(**json.loads(operation_json))
-                result = execute_database_operation(operation)
-                response = response.split("DATABASE_OPERATION:")[0] + f"\nOperation successful: {result}"
+                # Extract the JSON part after DATABASE_OPERATION:
+                operation_str = response.split("DATABASE_OPERATION:")[1].strip()
+                # Remove any text after the JSON (in case there's additional text)
+                operation_str = operation_str.split('\n')[0].strip()
+                logger.info(f"Attempting to parse operation: {operation_str}")
+                
+                try:
+                    operation = DatabaseOperation(**json.loads(operation_str))
+                    result = execute_database_operation(operation)
+                    response = response.split("DATABASE_OPERATION:")[0] + f"\nOperation successful: {result}"
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parsing error: {str(e)}")
+                    response = f"Error in database operation format. Please ensure the operation is valid JSON. Error: {str(e)}"
+                except Exception as e:
+                    logger.error(f"Error executing database operation: {str(e)}")
+                    response = f"Error executing database operation: {str(e)}"
         except Exception as e:
-            logger.error(f"Error executing database operation: {str(e)}")
-            response = f"Error executing database operation: {str(e)}"
+            logger.error(f"Error processing database operation: {str(e)}")
+            response = f"Error processing database operation: {str(e)}"
         
         return {"response": response}
     except Exception as e:
