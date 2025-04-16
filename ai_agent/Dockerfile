@@ -1,10 +1,13 @@
 FROM python:3.9-slim
 
+WORKDIR /app
+
+# Set PYTHONPATH to include the current directory
+ENV PYTHONPATH=/app
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
-
-WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
