@@ -11,7 +11,8 @@ class AIAgentForm extends Component {
             inputMessage: "",
             isOpen: false,
             isLoading: false,
-            conversationHistory: []
+            conversationHistory: [],
+            activeAgent: 'main', // 'main' or 'sales'
         });
         this.rpc = useService("rpc");
         this.notification = useService("notification");
@@ -51,7 +52,8 @@ class AIAgentForm extends Component {
                 },
                 body: JSON.stringify({ 
                     message: message,
-                    conversation_history: conversationHistory
+                    conversation_history: conversationHistory,
+                    agent_type: this.state.activeAgent
                 }),
             });
             
@@ -145,6 +147,13 @@ class AIAgentForm extends Component {
         }
     }
 
+    switchAgent(agentType) {
+        this.state.activeAgent = agentType;
+        this.state.messages = [];
+        this.state.conversationHistory = [];
+        this.notification.add(`Switched to ${agentType} agent`, { type: "info" });
+    }
+
     handleKeyPress(ev) {
         if (ev.key === "Enter" && !ev.shiftKey) {
             ev.preventDefault();
@@ -163,7 +172,6 @@ class AIAgentForm extends Component {
     toggleChat() {
         this.state.isOpen = !this.state.isOpen;
         if (this.state.isOpen) {
-            // Use setTimeout to ensure the DOM is updated before scrolling
             setTimeout(() => this.scrollToBottom(), 0);
         }
     }

@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sales_agent_user,sales.agent.user,model_sales_agent,base.group_user,1,1,1,1
+access_sales_agent_email_template_user,sales.agent.email.template.user,model_sales_agent_email_template,base.group_user,1,1,1,1
+access_sales_agent_communication_user,sales.agent.communication.user,model_sales_agent_communication,base.group_user,1,1,1,1 

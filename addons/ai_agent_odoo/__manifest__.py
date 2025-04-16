@@ -5,14 +5,16 @@
     'summary': 'Integrates AI Agent with Odoo',
     'description': """
         This module integrates the AI Agent with Odoo, providing a chat interface
-        for interacting with the AI assistant.
+        for interacting with the AI assistant and sales agent.
     """,
     'author': 'Your Company',
     'website': '',
-    'depends': ['base', 'web', 'mail'],
+    'depends': ['base', 'web', 'mail', 'crm'],
     'data': [
         'views/ai_agent_views.xml',
+        'views/sales_agent_views.xml',
         'views/menu_views.xml',
+        'security/ir.model.access.csv',
     ],
     'assets': {
         'web.assets_backend': [

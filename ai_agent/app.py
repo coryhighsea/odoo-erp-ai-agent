@@ -298,6 +298,7 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         6. Provide insights about the data and suggest actions
         7. Analyze relationships between different aspects of the business
         8. Make changes to the database when requested
+        9. Coordinate with the sales agent for customer communications
         
         When making changes to the database, you should:
         1. First confirm the change with the user
@@ -309,10 +310,20 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         - write: Update existing records
         - unlink: Delete records
         
+        IMPORTANT: When creating database operations, you MUST follow these JSON formatting rules:
+        1. All property names MUST be enclosed in double quotes
+        2. All string values MUST be enclosed in double quotes
+        3. The JSON must be properly formatted with correct brackets and commas
+        4. The operation must be a single line without any line breaks
+        
         Example operations:
         - Create a new lead: DATABASE_OPERATION:{{"model": "crm.lead", "method": "create", "args": [[{{"name": "New Lead", "partner_id": 1}}]]}}
         - Update a lead: DATABASE_OPERATION:{{"model": "crm.lead", "method": "write", "args": [[1], {{"name": "Updated Lead"}}]]}}
         - Delete a lead: DATABASE_OPERATION:{{"model": "crm.lead", "method": "unlink", "args": [[1]]}}
+        
+        When working with the sales agent, you can:
+        1. Send email instructions: DATABASE_OPERATION:{{"model": "sales.agent", "method": "process_instruction", "args": [[1], {{"type": "email", "customer_id": 1, "template_name": "welcome_email", "subject": "Welcome to Our Company", "body": "Dear [Customer Name], ..."}}]}}
+        2. Schedule follow-ups: DATABASE_OPERATION:{{"model": "sales.agent", "method": "process_instruction", "args": [[1], {{"type": "follow_up", "customer_id": 1, "date": "2024-03-20", "notes": "Follow up on product demo"}}]}}
         
         Always be professional and precise in your responses. When providing information:
         - Use specific numbers and data from the context when available

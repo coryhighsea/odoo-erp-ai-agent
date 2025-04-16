@@ -50,6 +50,38 @@
     align-items: center;
 }
 
+.o_agent_switcher {
+    display: flex;
+    gap: 10px;
+}
+
+.o_agent_button {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 15px;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.o_agent_button.o_active {
+    background-color: white;
+    color: #875A7B;
+}
+
+.o_agent_button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.o_agent_button.o_active:hover {
+    background-color: white;
+}
+
 .o_close_button {
     cursor: pointer;
 }

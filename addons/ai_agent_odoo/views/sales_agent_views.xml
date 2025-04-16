@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sales Agent Form View -->
+    <record id="view_sales_agent_form" model="ir.ui.view">
+        <field name="name">sales.agent.form</field>
+        <field name="model">sales.agent</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                        <field name="active" widget="boolean_button" options="{'terminology': 'archive'}"/>
+                    </button>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Sales Agent Name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <field name="email"/>
+                        <field name="state" widget="statusbar" statusbar_visible="available,busy,offline"/>
+                    </group>
+                    <notebook>
+                        <page string="Email Templates">
+                            <field name="email_templates">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="subject"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="subject"/>
+                                        <field name="body"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="Communication History">
+                            <field name="communication_history">
+                                <tree>
+                                    <field name="date"/>
+                                    <field name="customer_id"/>
+                                    <field name="type"/>
+                                    <field name="status"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="date"/>
+                                        <field name="customer_id"/>
+                                        <field name="type"/>
+                                        <field name="status"/>
+                                        <field name="content"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Sales Agent Tree View -->
+    <record id="view_sales_agent_tree" model="ir.ui.view">
+        <field name="name">sales.agent.tree</field>
+        <field name="model">sales.agent</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="email"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Sales Agent Search View -->
+    <record id="view_sales_agent_search" model="ir.ui.view">
+        <field name="name">sales.agent.search</field>
+        <field name="model">sales.agent</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="email"/>
+                <filter string="Available" name="available" domain="[('state','=','available')]"/>
+                <filter string="Busy" name="busy" domain="[('state','=','busy')]"/>
+                <filter string="Offline" name="offline" domain="[('state','=','offline')]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Sales Agent Action -->
+    <record id="action_sales_agent" model="ir.actions.act_window">
+        <field name="name">Sales Agents</field>
+        <field name="res_model">sales.agent</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_sales_agent"
+        name="Sales Agents"
+        parent="menu_ai_agent_root"
+        action="action_sales_agent"
+        sequence="20"/>
+</odoo> 

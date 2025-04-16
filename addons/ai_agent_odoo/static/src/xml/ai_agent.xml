@@ -7,7 +7,16 @@
             </div>
             <div t-if="state.isOpen" class="o_ai_agent_chat">
                 <div class="o_chat_header">
-                    <span>AI Assistant</span>
+                    <div class="o_agent_switcher">
+                        <button t-on-click="() => this.switchAgent('main')" 
+                                t-att-class="'o_agent_button ' + (state.activeAgent === 'main' ? 'o_active' : '')">
+                            <i class="fa fa-robot"/> Main Agent
+                        </button>
+                        <button t-on-click="() => this.switchAgent('sales')"
+                                t-att-class="'o_agent_button ' + (state.activeAgent === 'sales' ? 'o_active' : '')">
+                            <i class="fa fa-envelope"/> Sales Agent
+                        </button>
+                    </div>
                     <i class="fa fa-times o_close_button" t-on-click="toggleChat"/>
                 </div>
                 <div class="o_chat_container">
