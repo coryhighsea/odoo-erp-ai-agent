@@ -61,17 +61,32 @@ class AIAgentForm extends Component {
             
             const data = await response.json();
             
-            // Check if the response contains Odoo commands
-            const odooCommands = this.extractOdooCommands(data.response);
-            if (odooCommands.length > 0) {
-                // Execute Odoo commands
-                for (const command of odooCommands) {
-                    try {
-                        await this.executeOdooCommand(command);
-                    } catch (error) {
-                        console.error("Error executing Odoo command:", error);
-                        this.notification.add("Error executing command: " + error.message, { type: "danger" });
-                    }
+            // Check if the response contains a database operation
+            if (data.response.includes("DATABASE_OPERATION:")) {
+                try {
+                    // Extract the operation JSON
+                    const operationStr = data.response.split("DATABASE_OPERATION:")[1].trim().split('\n')[0];
+                    const operation = JSON.parse(operationStr);
+                    
+                    // Execute the operation through Odoo's RPC
+                    await this.rpc(`/web/dataset/call_kw/${operation.model}/${operation.method}`, {
+                        model: operation.model,
+                        method: operation.method,
+                        args: operation.args,
+                        kwargs: operation.kwargs
+                    });
+                    
+                    // Show success notification
+                    this.notification.add("Operation completed successfully", { type: "success" });
+                    
+                    // Trigger a reload of the current view to reflect changes
+                    this.env.services.action.doAction({
+                        type: 'ir.actions.client',
+                        tag: 'reload',
+                    });
+                } catch (error) {
+                    console.error("Error executing database operation:", error);
+                    this.notification.add("Error executing operation: " + error.message, { type: "danger" });
                 }
             }
             
