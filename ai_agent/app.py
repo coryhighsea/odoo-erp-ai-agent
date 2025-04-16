@@ -1,5 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.usage import UsageLimits
@@ -23,6 +26,10 @@ load_dotenv()
 
 app = FastAPI()
 
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +42,7 @@ app.add_middleware(
 )
 
 # Odoo connection settings
-ODOO_URL = os.getenv("ODOO_URL", "http://web:8069")
+ODOO_URL = os.getenv("ODOO_URL", "http://localhost:8069")
 ODOO_DB = os.getenv("ODOO_DB", "HISEY")
 ODOO_USERNAME = os.getenv("ODOO_USERNAME", "cjhisey@gmail.com")
 ODOO_PASSWORD = os.getenv("ODOO_PASSWORD", "odoo")
@@ -86,103 +93,96 @@ class CRMContext:
     # Services
     logger: logging.Logger = field(default_factory=lambda: logger)
     
+    def get_odoo_connection(self) -> Tuple[int, Any]:
+        """Get Odoo connection"""
+        try:
+            self.logger.info(f"Connecting to Odoo at {self.odoo_url}")
+            common = xmlrpc.client.ServerProxy(f'{self.odoo_url}/xmlrpc/2/common')
+            uid = common.authenticate(self.odoo_db, self.odoo_username, self.odoo_password, {})
+            if not uid:
+                raise ValueError("Failed to authenticate with Odoo")
+            self.logger.info(f"Successfully authenticated with Odoo, UID: {uid}")
+            
+            models = xmlrpc.client.ServerProxy(f'{self.odoo_url}/xmlrpc/2/object')
+            return uid, models
+        except Exception as e:
+            self.logger.error(f"Error connecting to Odoo: {str(e)}")
+            raise
+    
     def __post_init__(self):
         """Fetch CRM data after initialization"""
         try:
             uid, models = self.get_odoo_connection()
             
             # Get leads and opportunities
+            self.logger.info("Fetching leads and opportunities")
             self.leads = models.execute_kw(
                 self.odoo_db, uid, self.odoo_password,
                 'crm.lead', 'search_read',
                 [[]],
                 {'fields': ['name', 'partner_id', 'type', 'stage_id', 'probability', 'expected_revenue', 'create_date', 'user_id']}
             )
+            self.logger.info(f"Fetched {len(self.leads)} leads")
             
-            # Get pipeline stages
+            # Get stages
+            self.logger.info("Fetching stages")
             self.stages = models.execute_kw(
                 self.odoo_db, uid, self.odoo_password,
                 'crm.stage', 'search_read',
                 [[]],
-                {'fields': ['name', 'sequence', 'is_won']}
+                {'fields': ['name', 'sequence']}
             )
+            self.logger.info(f"Fetched {len(self.stages)} stages")
             
-            # Get sales teams
+            # Get teams
+            self.logger.info("Fetching teams")
             self.teams = models.execute_kw(
                 self.odoo_db, uid, self.odoo_password,
                 'crm.team', 'search_read',
                 [[]],
-                {'fields': ['name', 'member_ids', 'alias_id']}
+                {'fields': ['name', 'user_id']}
             )
+            self.logger.info(f"Fetched {len(self.teams)} teams")
             
             # Get activity types
+            self.logger.info("Fetching activity types")
             self.activity_types = models.execute_kw(
                 self.odoo_db, uid, self.odoo_password,
                 'mail.activity.type', 'search_read',
-                [[['res_model', '=', 'crm.lead']]],
-                {'fields': ['name', 'category', 'delay_count', 'delay_unit']}
+                [[]],
+                {'fields': ['name', 'category']}
             )
+            self.logger.info(f"Fetched {len(self.activity_types)} activity types")
             
-            # Get recent activities
+            # Get activities
+            self.logger.info("Fetching activities")
             self.activities = models.execute_kw(
                 self.odoo_db, uid, self.odoo_password,
                 'mail.activity', 'search_read',
-                [[['res_model', '=', 'crm.lead']]],
-                {'fields': ['res_id', 'activity_type_id', 'summary', 'date_deadline', 'user_id', 'state']}
+                [[]],
+                {'fields': ['activity_type_id', 'res_id', 'res_model', 'date_deadline', 'user_id', 'note']}
             )
+            self.logger.info(f"Fetched {len(self.activities)} activities")
             
-            # Get customer data
+            # Get customers
+            self.logger.info("Fetching customers")
             self.customers = models.execute_kw(
                 self.odoo_db, uid, self.odoo_password,
                 'res.partner', 'search_read',
-                [[['customer_rank', '>', 0]]],
-                {'fields': ['name', 'email', 'phone', 'street', 'city', 'country_id', 'customer_rank']}
+                [['customer_rank', '>', 0]],
+                {'fields': ['name', 'email', 'phone', 'mobile', 'street', 'city', 'country_id']}
             )
+            self.logger.info(f"Fetched {len(self.customers)} customers")
             
-            self.logger.info(f"Retrieved CRM context with {len(self.leads)} leads, {len(self.stages)} stages, and {len(self.customers)} customers")
         except Exception as e:
             self.logger.error(f"Error fetching CRM data: {str(e)}")
-            self.logger.error(f"Error type: {type(e)}")
-            self.logger.error(f"Error args: {e.args}")
-    
-    def get_odoo_connection(self) -> tuple[int, Any]:
-        """Establish connection to Odoo instance"""
-        try:
-            self.logger.info(f"Connecting to Odoo at {self.odoo_url} with database {self.odoo_db}")
-            common = xmlrpc.client.ServerProxy(f'{self.odoo_url}/xmlrpc/2/common')
-            uid = common.authenticate(self.odoo_db, self.odoo_username, self.odoo_password, {})
-            if not uid:
-                raise Exception("Authentication failed. Please check your credentials and database name.")
-            models = xmlrpc.client.ServerProxy(f'{self.odoo_url}/xmlrpc/2/object')
-            self.logger.info("Successfully connected to Odoo")
-            return uid, models
-        except Exception as e:
-            self.logger.error(f"Error connecting to Odoo: {str(e)}")
-            raise
-    
-    async def execute_database_operation(self, operation: DatabaseOperation) -> Any:
-        """Execute a database operation safely"""
-        try:
-            self.logger.info(f"Executing database operation: {operation.model}.{operation.method}")
-            self.logger.info(f"Args: {operation.args}")
-            self.logger.info(f"Kwargs: {operation.kwargs}")
-            
-            uid, models = self.get_odoo_connection()
-            
-            # Execute the operation
-            result = models.execute_kw(
-                self.odoo_db, uid, self.odoo_password,
-                operation.model,
-                operation.method,
-                operation.args,
-                operation.kwargs
-            )
-            
-            self.logger.info(f"Operation successful. Result: {result}")
-            return result
-        except Exception as e:
-            self.logger.error(f"Error executing database operation: {str(e)}")
-            raise
+            # Don't raise the exception, just log it and continue with empty lists
+            self.leads = []
+            self.stages = []
+            self.teams = []
+            self.activity_types = []
+            self.activities = []
+            self.customers = []
 
 def connect_to_odoo():
     """Establish connection to Odoo instance"""
@@ -403,6 +403,11 @@ class CRMAgent(Agent[CRMContext, str]):
 
 # Initialize the CRM agent
 crm_agent = CRMAgent()
+
+@app.get("/")
+async def root(request: Request):
+    """Serve the chat interface"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/ping")
 async def ping():

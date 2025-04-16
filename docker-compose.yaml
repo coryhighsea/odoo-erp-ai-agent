@@ -41,6 +41,7 @@ services:
       - ODOO_PASSWORD=odoo
     depends_on:
       - web
+      - db
     networks:
       - odoo-network
 
