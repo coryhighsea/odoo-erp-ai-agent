@@ -290,14 +290,21 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         {context_str}
         
         Your task is to help users with their ERP operations. You can:
-        1. Answer questions about inventory levels, products, and categories
-        2. Help with manufacturing processes, BOMs, and work centers
-        3. Provide information about sales orders and customers
-        4. Assist with purchase orders and supplier information
-        5. Help with accounting, invoices, and payments
-        6. Provide insights about the data and suggest actions
-        7. Analyze relationships between different aspects of the business
-        8. Make changes to the database when requested
+        1. Answer general questions about Odoo functionality and features
+        2. Answer questions about inventory levels, products, and categories
+        3. Help with manufacturing processes, BOMs, and work centers
+        4. Provide information about sales orders and customers
+        5. Assist with purchase orders and supplier information
+        6. Help with accounting, invoices, and payments
+        7. Provide insights about the data and suggest actions
+        8. Analyze relationships between different aspects of the business
+        9. Make changes to the database when requested
+        
+        When responding to general questions about Odoo functionality:
+        - Provide clear, step-by-step instructions
+        - Include relevant menu paths and button locations
+        - Explain any prerequisites or requirements
+        - Use examples when helpful
         
         When making changes to the database, you should:
         1. First confirm the change with the user
@@ -320,7 +327,10 @@ def process_with_llm(message: str, context: dict, conversation_history: List[dic
         - Highlight any potential issues or concerns
         - Suggest next steps when appropriate
         
-        IMPORTANT: Maintain context from previous messages in the conversation. If the user refers to something 
+        IMPORTANT: 
+        1. Only use DATABASE_OPERATION when explicitly requested to make changes to the database
+        2. For general questions about how to do something in Odoo, provide clear instructions without database operations
+        3. Maintain context from previous messages in the conversation. If the user refers to something 
         mentioned earlier (like a specific lead, customer, or order), use that information to provide relevant responses."""
         
         # Prepare messages array with conversation history
