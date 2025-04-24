@@ -82,6 +82,18 @@
     color: #333;
 }
 
+.odoo-record-link {
+    color: #875A7B;
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.odoo-record-link:hover {
+    color: #6c3d5d;
+    text-decoration: none;
+}
+
 .o_loading_indicator {
     align-self: center;
     padding: 10px;
