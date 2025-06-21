@@ -1,14 +1,15 @@
 {
     'name': 'AI Agent Integration',
-    'version': '1.0',
+    'version': '17.0.1.0.0',
     'category': 'Tools',
     'summary': 'Integrates AI Agent with Odoo',
     'description': """
         This module integrates the AI Agent with Odoo, providing a chat interface
         for interacting with the AI assistant.
     """,
-    'author': 'Your Company',
-    'website': '',
+    'license': 'LGPL-3'
+    'author': 'Cory Hisey',
+    'website': 'https://coryhisey.com',
     'depends': ['base', 'web', 'mail'],
     'data': [
         'views/ai_agent_views.xml',
