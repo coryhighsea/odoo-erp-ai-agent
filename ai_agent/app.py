@@ -28,10 +28,10 @@ app.add_middleware(
 )
 
 # Odoo connection settings
-ODOO_URL = os.getenv("ODOO_URL", "http://web:8069")
-ODOO_DB = os.getenv("ODOO_DB", "HISEY")
-ODOO_USERNAME = os.getenv("ODOO_USERNAME", "cjhisey@gmail.com")
-ODOO_PASSWORD = os.getenv("ODOO_PASSWORD", "odoo")
+ODOO_URL = os.getenv("ODOO_URL")
+ODOO_DB = os.getenv("ODOO_DB")
+ODOO_USERNAME = os.getenv("ODOO_USERNAME")
+ODOO_PASSWORD = os.getenv("ODOO_PASSWORD")
 
 # Anthropic settings
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")

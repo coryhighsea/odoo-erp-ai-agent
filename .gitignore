@@ -22,7 +22,7 @@ var/
 
 # Environment variables
 .env
-.env.*
+.env.local
 
 # Docker
 docker-compose.override.yml
