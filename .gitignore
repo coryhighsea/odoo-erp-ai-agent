@@ -26,6 +26,7 @@ var/
 
 # Docker
 docker-compose.override.yml
+docker-compose.yaml
 
 # IDE
 .idea/
