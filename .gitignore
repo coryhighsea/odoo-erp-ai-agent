@@ -38,7 +38,7 @@ docker-compose.yaml
 # Odoo
 odoo-web-data/
 postgres-data/
-addons/*/static/description/
+#addons/*/static/description/
 filestore/
 sessions/
 
