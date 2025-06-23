@@ -7,7 +7,7 @@
         This module integrates the AI Agent with Odoo, providing a chat interface
         for interacting with the AI assistant.
     """,
-    'license': 'LGPL-3'
+    'license': 'LGPL-3',
     'author': 'Cory Hisey',
     'website': 'https://coryhisey.com',
     'depends': ['base', 'web', 'mail'],
@@ -22,7 +22,8 @@
             'ai_agent_odoo/static/src/xml/ai_agent.xml',
         ],
     },
+    'images': ['static/images/changing-sales-order.png'],
     'installable': True,
     'application': True,
     'auto_install': False,
-} 
+}

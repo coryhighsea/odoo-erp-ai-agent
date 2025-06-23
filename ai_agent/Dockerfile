@@ -19,10 +19,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the rest of the application
 COPY . .
 
-# adding using not root
-RUN adduser --system --group appuser
-USER appuser
-
 # Expose the port the app runs on
 EXPOSE 8000
 
