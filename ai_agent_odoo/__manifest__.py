@@ -20,7 +20,7 @@
             'ai_agent_odoo/static/src/xml/ai_agent.xml',
         ],
     },
-    'images': ['static/images/changing-sales-order.png'],
+    'images': ['static/images/thumbnail.png'],
     'installable': True,
     'application': True,
     'auto_install': False,
