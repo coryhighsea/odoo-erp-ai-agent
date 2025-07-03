@@ -15,9 +15,9 @@
     'assets': {
         'web.assets_backend': [
             # Corrected paths relative to the addon root directory
-            'ai_agent/static/src/css/ai_agent.css',
-            'ai_agent/static/src/js/ai_agent.js',
-            'ai_agent/static/src/xml/ai_agent.xml',
+            'ai_agent_odoo/static/src/css/ai_agent.css',
+            'ai_agent_odoo/static/src/js/ai_agent.js',
+            'ai_agent_odoo/static/src/xml/ai_agent.xml',
         ],
     },
     'images': ['static/images/changing-sales-order.png'],

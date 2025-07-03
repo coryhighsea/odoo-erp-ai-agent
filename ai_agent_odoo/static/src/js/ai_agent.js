@@ -42,7 +42,7 @@ class AIAgentSystray extends Component {
             });
 
             // Use rpc to get the configuration from the Odoo backend.
-            const config = await rpc("/ai_agent/get_config", {});
+            const config = await rpc("/ai_agent_odoo/get_config", {});
             if (!config || !config.ai_agent_url || !config.ai_agent_api_key) {
                 throw new Error("AI Agent URL is not configured in Odoo's System Parameters.");
             }
@@ -106,10 +106,10 @@ class AIAgentSystray extends Component {
     }
 }
 
-AIAgentSystray.template = "ai_agent.AIAgentSystray";
+AIAgentSystray.template = "ai_agent_odoo.AIAgentSystray";
 AIAgentSystray.props = {};
 
 // Add the widget to the systray
-registry.category("systray").add("ai_agent.AIAgentSystray", {
+registry.category("systray").add("ai_agent_odoo.AIAgentSystray", {
     Component: AIAgentSystray,
 });

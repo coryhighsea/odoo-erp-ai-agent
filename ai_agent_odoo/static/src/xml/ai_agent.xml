@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="ai_agent.AIAgentSystray">
+    <t t-name="ai_agent_odoo.AIAgentSystray">
         <div class="o_ai_agent">
             <div class="o_ai_agent_button" t-on-click="toggleChat">
                 <i class="fa fa-robot"/>

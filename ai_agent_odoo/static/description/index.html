@@ -245,11 +245,16 @@
                     In Odoo, activate Developer Mode, then go to <strong>Settings &gt; Technical &gt; System Parameters</strong>.
                 </li>
                 <li data-step="4">
-                    Create a new System Parameter:
+                    Create two new System Parameters:
                     <ul>
-                        <li><strong>Key:</strong> <code>ai_agent.service_url</code></li>
-                        <li><strong>Value:</strong> The full URL of your running Python AI service (e.g., <code>https://ai-agent.stack-crate.com</code>).</li>
+                        <li><strong>Key:</strong> <code>ai_agent_odoo.service_url</code></li>
+                        <li><strong>Value:</strong> <code>https://ai-service.stack-crate.com</code></li>
                     </ul>
+                    <ul>
+                        <li><strong>Key:</strong> <code>ai_agent_odoo.api_key</code></li>
+                        <li><strong>Value:</strong> <em>Your secret API key</em></li>
+                    </ul>
+                    <p><strong>Note:</strong> Request the API key from Cory Hisey to use the backend AI service.</p>
                 </li>
                 <li data-step="5">
                     Refresh your browser. The AI Assistant widget will appear in the bottom-right corner, ready to help!
