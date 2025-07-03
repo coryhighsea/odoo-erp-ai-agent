@@ -13,7 +13,11 @@ class AIAgentController(http.Controller):
         get_param = request.env['ir.config_parameter'].sudo().get_param
         ai_agent_url = get_param('ai_agent_odoo.service_url')
         ai_agent_api_key = get_param('ai_agent_odoo.api_key')
+        db = request.session.db
+        login = request.session.login
         return {
             'ai_agent_url': ai_agent_url,
             'ai_agent_api_key': ai_agent_api_key,
+            'db': db,
+            'login': login,
         }

@@ -2,7 +2,25 @@
 
 import { registry } from "@web/core/registry";
 import { rpc } from "@web/core/network/rpc";
-import { Component, useState, onMounted } from "@odoo/owl";
+import { Component, useState, onMounted} from "@odoo/owl";
+
+// Password modal component
+export class PasswordModal extends Component {
+    setup() {
+        this.state = useState({ password: "" });
+    }
+    onInput(ev) {
+        this.state.password = ev.target.value;
+    }
+    onOk() {
+        this.props.onSubmit(this.state.password);
+    }
+    onCancel() {
+        this.props.onCancel();
+    }
+}
+PasswordModal.template = "ai_agent_odoo.PasswordModal";
+PasswordModal.props = ["onSubmit", "onCancel"];
 
 class AIAgentSystray extends Component {
     setup() {
@@ -11,7 +29,10 @@ class AIAgentSystray extends Component {
             inputMessage: "",
             isOpen: false,
             isLoading: false,
-            conversationHistory: []
+            conversationHistory: [],
+            odooPassword: null, // Store password in memory only
+            showPasswordModal: false,
+            passwordPromise: null,
         });
         onMounted(() => {
             if (this.state.isOpen) {
@@ -20,11 +41,34 @@ class AIAgentSystray extends Component {
         });
     }
 
+    async promptForPassword() {
+        this.state.showPasswordModal = true;
+        return new Promise((resolve, reject) => {
+            this.state.passwordPromise = { resolve, reject };
+        });
+    }
+
+    onPasswordSubmit(password) {
+        this.state.odooPassword = password;
+        this.state.showPasswordModal = false;
+        if (this.state.passwordPromise) {
+            this.state.passwordPromise.resolve(password);
+            this.state.passwordPromise = null;
+        }
+    }
+    onPasswordCancel() {
+        this.state.showPasswordModal = false;
+        if (this.state.passwordPromise) {
+            this.state.passwordPromise.reject(new Error("Password is required to use the AI agent."));
+            this.state.passwordPromise = null;
+        }
+    }
+
     async sendMessage() {
         if (!this.state.inputMessage.trim() || this.state.isLoading) return;
 
         const message = this.state.inputMessage;
-        this.state.messages.push({ content: message, isUser: true });
+        this.state.messages.push({ content: message, isUser: true, isHtml: false });
         this.state.inputMessage = "";
         this.state.isLoading = true;
 
@@ -43,39 +87,56 @@ class AIAgentSystray extends Component {
 
             // Use rpc to get the configuration from the Odoo backend.
             const config = await rpc("/ai_agent_odoo/get_config", {});
-            if (!config || !config.ai_agent_url || !config.ai_agent_api_key) {
-                throw new Error("AI Agent URL is not configured in Odoo's System Parameters.");
+            if (!config || !config.ai_agent_url || !config.ai_agent_api_key || !config.db || !config.login) {
+                throw new Error("AI Agent URL or Odoo credentials are not configured in Odoo's System Parameters.");
             }
 
-            // Make the call to your Python AI service
-            const response = await fetch(`${config.ai_agent_url}/chat`, {
+            // Prompt for password if not already set
+            let password = this.state.odooPassword;
+            if (!password) {
+                password = await this.promptForPassword();
+            }
+
+            // Compose the payload for the new endpoint
+            const payload = {
+                odoo_credentials: {
+                    url: window.location.origin, // Use current Odoo instance URL
+                    db: config.db,
+                    username: config.login,
+                    password: password,
+                },
+                prompt: message,
+                conversation_history: conversationHistory,
+            };
+
+            // Make the call to your Python AI service (new endpoint)
+            const response = await fetch(`${config.ai_agent_url}/api/v1/agent/invoke`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "api-Key": config.ai_agent_api_key },
-                body: JSON.stringify({
-                    message: message,
-                    conversation_history: conversationHistory,
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
+                console.error("API error details:", errorData);
+                throw new Error(JSON.stringify(errorData));
             }
 
             const data = await response.json();
 
-            // Add AI response to messages and history
-            this.state.messages.push({ content: data.response, isUser: false });
+            // Render AI response as HTML (sanitize only, since LLM returns HTML)
+            const html = window.DOMPurify.sanitize(data.response);
+            this.state.messages.push({ content: html, isUser: false, isHtml: true });
             this.state.conversationHistory = conversationHistory.concat([{
                 role: "assistant",
                 content: data.response
             }]);
 
-            // Scroll to bottom of chat
-            this.scrollToBottom();
+            // Scroll to bottom of chat after DOM update
+            setTimeout(() => this.scrollToBottom(), 0);
         } catch (error) {
             const errorMessage = "Error: " + error.message;
-            this.state.messages.push({ content: errorMessage, isUser: false });
+            this.state.messages.push({ content: errorMessage, isUser: false, isHtml: false });
             console.error("Error:", error);
         } finally {
             this.state.isLoading = false;
@@ -108,6 +169,7 @@ class AIAgentSystray extends Component {
 
 AIAgentSystray.template = "ai_agent_odoo.AIAgentSystray";
 AIAgentSystray.props = {};
+AIAgentSystray.components = { PasswordModal };
 
 // Add the widget to the systray
 registry.category("systray").add("ai_agent_odoo.AIAgentSystray", {
