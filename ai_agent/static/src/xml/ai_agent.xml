@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="ai_agent_odoo.AIAgentForm" owl="1">
+    <t t-name="ai_agent.AIAgentSystray">
         <div class="o_ai_agent">
             <div class="o_ai_agent_button" t-on-click="toggleChat">
                 <i class="fa fa-robot"/>
@@ -14,7 +14,8 @@
                     <t t-foreach="state.messages" t-as="message" t-key="message_index">
                         <div t-attf-class="o_message #{message.isUser ? 'o_user_message' : 'o_ai_message'}">
                             <div class="o_message_content">
-                                <t t-esc="message.content"/>
+                                <t t-if="message.isHtml" t-out="message.content"/>
+                                <t t-if="!message.isHtml" t-esc="message.content"/>
                             </div>
                         </div>
                     </t>
@@ -39,4 +40,4 @@
             </div>
         </div>
     </t>
-</templates> 
+</templates>

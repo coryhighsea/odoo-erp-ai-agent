@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant for Odoo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #714B67; /* Odoo-inspired Purple */
+            --secondary-color: #27ae60; /* A nice green for success */
+            --text-color: #4c4c4c;
+            --heading-color: #2a2a2a;
+            --bg-color: #f9f9f9;
+            --card-bg: #ffffff;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 60px 20px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 40px;
+        }
+
+        .hero h1 {
+            font-size: 3em;
+            font-weight: 700;
+            color: var(--heading-color);
+            margin: 0;
+        }
+
+        .hero .icon {
+            font-size: 4em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .hero p {
+            font-size: 1.2em;
+            color: var(--text-color);
+            max-width: 600px;
+            margin: 20px auto 0;
+        }
+        
+        section {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 2.2em;
+            font-weight: 600;
+            color: var(--heading-color);
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        
+        h2::after {
+            content: '';
+            display: block;
+            width: 60px;
+            height: 4px;
+            background-color: var(--primary-color);
+            border-radius: 2px;
+            margin: 15px auto 0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background-color: var(--bg-color);
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .feature-card h3 {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .chat-example {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 20px;
+            padding: 20px;
+        }
+        
+        .chat-bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            margin-bottom: 10px;
+        }
+        
+        .user-bubble {
+            background-color: var(--primary-color);
+            color: white;
+            margin-left: auto;
+            text-align: right;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-bubble {
+            background-color: #f1f1f1;
+            color: var(--text-color);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .setup-steps {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .setup-steps li {
+            position: relative;
+            padding-left: 35px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .setup-steps li::before {
+            content: attr(data-step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 25px;
+            height: 25px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+        }
+        
+        code {
+            background-color: #e3e6e8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #d63384;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="hero">
+            <div class="icon">🤖</div>
+            <h1>AI Assistant for Odoo</h1>
+            <p>Supercharge your Odoo workflow with an intelligent, conversational AI sidekick, fully integrated into your user interface.</p>
+        </header>
+
+        <section id="features">
+            <h2>Core Capabilities</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>Conversational Data Access</h3>
+                    <p>Ask questions in plain English to get real-time information about sales orders, customers, leads, or any other Odoo record.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Intelligent Actions</h3>
+                    <p>Go beyond simple chat. Instruct the AI to perform actions, like creating a new lead or updating a sales order, using its integrated toolset.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Seamless UI Integration</h3>
+                    <p>The assistant lives in a convenient floating chat widget, available on any screen in Odoo, ensuring help is always just a click away.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Configurable & Extensible</h3>
+                    <p>Powered by a flexible microservice, you can easily connect to different LLMs (OpenAI, Anthropic, etc.) and add new tools.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works">
+            <h2>See It In Action</h2>
+            <p>Interact with your data more naturally than ever before.</p>
+            <div class="chat-example">
+                <div class="chat-bubble user-bubble">
+                    Can you create a new lead for 'Global Tech Inc'? The contact is Jane Doe at jane.doe@globaltech.com.
+                </div>
+                <div class="chat-bubble ai-bubble">
+                    Of course. I am creating a new lead for 'Global Tech Inc' with contact Jane Doe.
+                </div>
+                 <div class="chat-bubble ai-bubble">
+                    Done! The new lead has been created with ID #123.
+                </div>
+            </div>
+        </section>
+
+        <section id="setup">
+            <h2>Setup & Configuration</h2>
+            <p>Getting started is easy. This addon connects to the standalone Python AI service.</p>
+            <ol class="setup-steps">
+                <li data-step="1">
+                    Deploy the Python AI service (e.g., using Docker Compose on Coolify) and ensure it's running.
+                </li>
+                <li data-step="2">
+                    Install this Odoo addon ("AI Assistant").
+                </li>
+                <li data-step="3">
+                    In Odoo, activate Developer Mode, then go to <strong>Settings &gt; Technical &gt; System Parameters</strong>.
+                </li>
+                <li data-step="4">
+                    Create a new System Parameter:
+                    <ul>
+                        <li><strong>Key:</strong> <code>ai_agent.service_url</code></li>
+                        <li><strong>Value:</strong> The full URL of your running Python AI service (e.g., <code>https://ai-agent.stack-crate.com</code>).</li>
+                    </ul>
+                </li>
+                <li data-step="5">
+                    Refresh your browser. The AI Assistant widget will appear in the bottom-right corner, ready to help!
+                </li>
+            </ol>
+        </section>
+    </div>
+</body>
+</html>
